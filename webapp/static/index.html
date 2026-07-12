@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Samil Project DB</title>
+<link rel="stylesheet" href="/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>Samil Project DB</h1>
+  <p>방산·반도체·건설 기업 검색 및 재무 대시보드</p>
+</header>
+
+<main>
+  <div class="filter-bar">
+    <input id="q" type="text" placeholder="회사명, 업종, 메모 검색..." />
+    <select id="industry">
+      <option value="">전체 산업</option>
+      <option value="defense">방산</option>
+      <option value="semiconductor">반도체</option>
+      <option value="construction">건설</option>
+    </select>
+    <select id="market">
+      <option value="">전체 시장</option>
+      <option value="KOSPI">KOSPI</option>
+      <option value="KOSDAQ">KOSDAQ</option>
+    </select>
+    <select id="level">
+      <option value="">전체 등급</option>
+      <option value="A">A (대표기업)</option>
+      <option value="B">B (주요기업)</option>
+      <option value="C">C (관련기업)</option>
+    </select>
+  </div>
+
+  <div class="result-count" id="result-count"></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>회사명</th>
+        <th>시장</th>
+        <th>업종분류(KSIC)</th>
+        <th>산업</th>
+        <th>메모</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+</main>
+
+<div id="detail-overlay">
+  <div id="detail-panel">
+    <button class="close-btn" id="close-detail">&times;</button>
+    <h2 id="detail-name"></h2>
+    <div class="sub" id="detail-sub"></div>
+    <div id="detail-body"></div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

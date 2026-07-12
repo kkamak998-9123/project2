@@ -1,0 +1,91 @@
+# -*- coding: utf-8 -*-
+"""CSV 데이터를 메모리에 올려서 API가 바로 조회할 수 있게 준비.
+데이터 규모가 작아(회사 백여 개, 재무 수천 행) DB 없이 pandas로 충분함."""
+
+from pathlib import Path
+
+import pandas as pd
+
+DATA_DIR = Path(__file__).parent / "data"
+
+INDUSTRY_LABELS = {
+    "defense": "방산",
+    "semiconductor": "반도체",
+    "construction": "건설",
+}
+
+
+def _read_csv(name: str) -> pd.DataFrame:
+    return pd.read_csv(DATA_DIR / name, dtype=str, keep_default_na=False)
+
+
+def load_data():
+    companies = _read_csv("companies_basic.csv")
+    # 데이터 생성 과정에서 신원 정보가 통째로 비어버린 깨진 행 제외
+    companies = companies[companies["corp_code"].str.strip() != ""].copy()
+    companies["corp_code"] = companies["corp_code"].str.strip()
+
+    industry_map = _read_csv("industry_map.csv")
+    industry_map = industry_map[industry_map["corp_code"].str.strip() != ""].copy()
+
+    financials = []
+    for industry_id in ("defense", "semiconductor", "construction"):
+        df = _read_csv(f"{industry_id}.csv")
+        df["corp_code"] = df["corp_code"].str.strip()
+        df = df[df["corp_code"] != ""].copy()
+        df["industry_id"] = industry_id
+        financials.append(df)
+    financials_df = pd.concat(financials, ignore_index=True)
+
+    # construction은 industry_map에 아직 없어서, 재무 데이터에 등장하는 것만으로 보강
+    existing_pairs = set(zip(industry_map["corp_code"], industry_map["industry_id"]))
+    construction_codes = financials_df.loc[
+        financials_df["industry_id"] == "construction", "corp_code"
+    ].unique()
+    extra_rows = []
+    for code in construction_codes:
+        if (code, "construction") not in existing_pairs:
+            row = companies.loc[companies["corp_code"] == code]
+            corp_name = row["corp_name"].iloc[0] if len(row) else ""
+            stock_code = row["stock_code"].iloc[0] if len(row) else ""
+            extra_rows.append({
+                "corp_code": code,
+                "stock_code": stock_code,
+                "corp_name": corp_name,
+                "industry_id": "construction",
+                "is_primary": "TRUE",
+                "level": "B",
+                "level_category": "주요기업",
+                "memo": "",
+                "updated_at": "",
+            })
+    if extra_rows:
+        industry_map = pd.concat([industry_map, pd.DataFrame(extra_rows)], ignore_index=True)
+
+    # 회사별로 속한 산업 목록을 companies_basic에 합쳐 넣음
+    industries_by_corp = (
+        industry_map.groupby("corp_code")
+        .apply(
+            lambda g: [
+                {
+                    "industry_id": r["industry_id"],
+                    "industry_label": INDUSTRY_LABELS.get(r["industry_id"], r["industry_id"]),
+                    "level": r["level"],
+                    "level_category": r["level_category"],
+                    "is_primary": r["is_primary"] == "TRUE",
+                }
+                for _, r in g.iterrows()
+            ],
+            include_groups=False,
+        )
+        .to_dict()
+    )
+    companies["industries"] = companies["corp_code"].map(
+        lambda c: industries_by_corp.get(c, [])
+    )
+
+    return {
+        "companies": companies,
+        "industry_map": industry_map,
+        "financials": financials_df,
+    }
