@@ -2,7 +2,7 @@ services:
   - type: web
     name: samil-project-db
     runtime: python
-    rootDir: 프로젝트5/webapp
+    rootDir: webapp
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     plan: free
