@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Samil Project DB 웹앱: 기업 검색/필터 + 재무 대시보드용 API + 정적 프론트엔드"""
+"""Samil Project DB 웹앱: 업종별 재무비율 검색/대시보드 API + 정적 프론트엔드"""
 
 from pathlib import Path
 
@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from data_loader import load_data
+from ratios import INDUSTRY_CONFIG
 
 app = FastAPI(title="Samil Project DB")
 app.add_middleware(
@@ -21,7 +22,11 @@ app.add_middleware(
 DATA = load_data()
 
 
-def _nan_to_none(records):
+def _cols_payload(cols):
+    return [{"key": k, "label": label, "unit": unit} for k, label, unit in cols]
+
+
+def _clean(records):
     for r in records:
         for k, v in r.items():
             if isinstance(v, float) and pd.isna(v):
@@ -29,103 +34,84 @@ def _nan_to_none(records):
     return records
 
 
-@app.get("/api/meta")
-def get_meta():
-    companies = DATA["companies"]
-    industries = sorted({
-        ind["industry_id"]
-        for row in companies["industries"]
-        for ind in row
-    })
-    markets = sorted(m for m in companies["market"].unique() if m)
-    levels = sorted({
-        ind["level"]
-        for row in companies["industries"]
-        for ind in row
-    })
-    industry_counts = {i: 0 for i in industries}
-    for row in companies["industries"]:
-        for ind in row:
-            industry_counts[ind["industry_id"]] += 1
+@app.get("/api/industries")
+def list_industries():
+    return [
+        {
+            "id": industry_id,
+            "label": cfg["label"],
+            "note": cfg["note"],
+            "table_cols": _cols_payload(cfg["table_cols"]),
+        }
+        for industry_id, cfg in INDUSTRY_CONFIG.items()
+    ]
 
-    return {
-        "industries": industries,
-        "markets": markets,
-        "levels": levels,
-        "industry_counts": industry_counts,
-        "total_companies": int(len(companies)),
+
+@app.get("/api/ratios")
+def list_ratios(
+    industry: str = Query(..., description="defense/semiconductor/construction"),
+    year: str = Query(...),
+    q: str = Query(""),
+):
+    if industry not in INDUSTRY_CONFIG:
+        raise HTTPException(status_code=404, detail="알 수 없는 산업입니다")
+
+    df = DATA["ratios"][industry]
+    df = df[df["year"] == year]
+    if q:
+        df = df[df["corp_name"].str.contains(q, case=False, na=False)]
+
+    table_keys = [k for k, _, _ in INDUSTRY_CONFIG[industry]["table_cols"]]
+    cols = ["corp_code", "stock_code", "corp_name"] + table_keys
+    records = df[cols].to_dict("records")
+
+    revenue_vals = df["revenue"].dropna()
+    opm_vals = df["opm"].dropna() if "opm" in df.columns else pd.Series(dtype=float)
+    profitable = int((df["opinc"] > 0).sum()) if "opinc" in df.columns else None
+
+    kpi = {
+        "count": len(df),
+        "total_revenue": float(revenue_vals.sum()) if len(revenue_vals) else None,
+        "median_opm": float(opm_vals.median()) if len(opm_vals) else None,
+        "profitable_count": profitable,
     }
 
-
-@app.get("/api/companies")
-def list_companies(
-    q: str = Query("", description="회사명/메모 검색어"),
-    industry: str = Query("", description="defense/semiconductor/construction"),
-    market: str = Query(""),
-    level: str = Query(""),
-):
-    df = DATA["companies"]
-
-    if industry:
-        df = df[df["industries"].apply(
-            lambda inds: any(i["industry_id"] == industry for i in inds)
-        )]
-    if level:
-        df = df[df["industries"].apply(
-            lambda inds: any(i["level"] == level for i in inds)
-        )]
-    if market:
-        df = df[df["market"] == market]
-    if q:
-        mask = (
-            df["corp_name"].str.contains(q, case=False, na=False)
-            | df["memo"].str.contains(q, case=False, na=False)
-            | df["ksic_name"].str.contains(q, case=False, na=False)
-        )
-        df = df[mask]
-
-    cols = [
-        "corp_code", "stock_code", "corp_name", "market",
-        "ksic_code", "ksic_name", "memo", "industries",
-        "수익인식 코드", "분류",
-    ]
-    records = df[cols].to_dict("records")
-    return {"count": len(records), "items": _nan_to_none(records)}
+    return {"count": len(records), "items": _clean(records), "kpi": kpi}
 
 
-@app.get("/api/companies/{corp_code}")
-def get_company(corp_code: str):
-    df = DATA["companies"]
-    row = df[df["corp_code"] == corp_code]
-    if row.empty:
-        raise HTTPException(status_code=404, detail="회사를 찾을 수 없습니다")
-    return _nan_to_none(row.to_dict("records"))[0]
+@app.get("/api/ratios/{industry}/{corp_code}")
+def get_ratio_detail(industry: str, corp_code: str):
+    if industry not in INDUSTRY_CONFIG:
+        raise HTTPException(status_code=404, detail="알 수 없는 산업입니다")
 
-
-@app.get("/api/financials/{corp_code}")
-def get_financials(corp_code: str):
-    fin = DATA["financials"]
-    rows = fin[fin["corp_code"] == corp_code]
+    df = DATA["ratios"][industry]
+    rows = df[df["corp_code"] == corp_code].sort_values("year")
     if rows.empty:
-        return {"count": 0, "items": []}
+        raise HTTPException(status_code=404, detail="재무비율 데이터가 없습니다")
 
-    cols = ["industry_id", "year", "fs_div", "sj_div", "account_name", "amount", "memo"]
-    records = rows[cols].to_dict("records")
+    cfg = INDUSTRY_CONFIG[industry]
+    all_keys = ["revenue"] + [k for k, _, _ in cfg["table_cols"]] + [k for k, _, _ in cfg["detail_cols"]]
+    all_keys = list(dict.fromkeys(all_keys))  # 순서 유지 중복 제거
 
-    # 연도별 매출액/영업이익 등 핵심 지표만 뽑아 차트용으로 별도 제공
-    KEY_ACCOUNTS = ["매출액", "영업이익", "당기순이익", "자산총계", "부채총계", "영업활동현금흐름"]
-    chart_rows = rows[rows["account_name"].isin(KEY_ACCOUNTS)].copy()
-    chart_rows["amount_num"] = pd.to_numeric(
-        chart_rows["amount"].str.replace(",", ""), errors="coerce"
-    )
-    chart = (
-        chart_rows.groupby(["year", "account_name"])["amount_num"]
-        .mean()
-        .reset_index()
-        .to_dict("records")
-    )
+    years = rows["year"].tolist()
+    series = {k: _clean([{"v": v} for v in rows[k].tolist()]) for k in all_keys if k in rows.columns}
+    series = {k: [r["v"] for r in v] for k, v in series.items()}
 
-    return {"count": len(records), "items": records, "chart": _nan_to_none(chart)}
+    latest = rows.iloc[-1]
+    latest_values = {k: (None if pd.isna(latest[k]) else latest[k]) for k in all_keys if k in rows.columns}
+
+    return {
+        "corp_code": corp_code,
+        "corp_name": latest["corp_name"],
+        "stock_code": latest["stock_code"],
+        "years": years,
+        "series": series,
+        "latest": latest_values,
+        "table_cols": _cols_payload(cfg["table_cols"]),
+        "detail_cols": _cols_payload(cfg["detail_cols"]),
+        "sparks": _cols_payload(cfg["sparks"]),
+        "note": cfg["note"],
+    }
 
 
 static_dir = Path(__file__).parent / "static"

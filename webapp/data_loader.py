@@ -6,7 +6,10 @@ from pathlib import Path
 
 import pandas as pd
 
+from ratios import INDUSTRY_CONFIG
+
 DATA_DIR = Path(__file__).parent / "data"
+FS_DIV_PRIORITY = {"CFS": 0, "OFS": 1}
 
 INDUSTRY_LABELS = {
     "defense": "방산",
@@ -17,6 +20,54 @@ INDUSTRY_LABELS = {
 
 def _read_csv(name: str) -> pd.DataFrame:
     return pd.read_csv(DATA_DIR / name, dtype=str, keep_default_na=False)
+
+
+def _parse_amount(s: str):
+    s = (s or "").strip()
+    if s == "" or s == "-":
+        return None
+    try:
+        return float(s.replace(",", ""))
+    except ValueError:
+        return None
+
+
+def build_ratios(financials_df: pd.DataFrame, companies: pd.DataFrame) -> dict:
+    """업종별 계정과목 -> 회사×연도별 재무비율 표로 변환"""
+    financials_df = financials_df.copy()
+    financials_df["amount_num"] = financials_df["amount"].apply(_parse_amount)
+    financials_df["_prio"] = financials_df["fs_div"].map(FS_DIV_PRIORITY).fillna(2)
+
+    # 회사 목록 자체엔 손대지 않되(중복 행 그대로 유지), 조회용으로만 corp_code 중복 제거
+    name_lookup = (
+        companies.drop_duplicates(subset="corp_code", keep="first")
+        .set_index("corp_code")[["corp_name", "stock_code"]]
+        .to_dict("index")
+    )
+
+    ratios_by_industry = {}
+    for industry_id, config in INDUSTRY_CONFIG.items():
+        sub = financials_df[financials_df["industry_id"] == industry_id]
+        rows = []
+        for (corp_code, year), group in sub.sort_values("_prio").groupby(["corp_code", "year"]):
+            acc = {}
+            for _, r in group.iterrows():
+                acc.setdefault(r["account_name"], r["amount_num"])
+
+            computed = config["compute"](acc)
+            info = name_lookup.get(corp_code, {})
+            corp_name = info.get("corp_name") or group["corp_name"].iloc[0]
+            stock_code = info.get("stock_code") or group["stock_code"].iloc[0]
+            rows.append({
+                "corp_code": corp_code,
+                "corp_name": corp_name,
+                "stock_code": stock_code,
+                "year": year,
+                **computed,
+            })
+        ratios_by_industry[industry_id] = pd.DataFrame(rows)
+
+    return ratios_by_industry
 
 
 def _normalize_corp_code(series: pd.Series) -> pd.Series:
@@ -92,8 +143,11 @@ def load_data():
         lambda c: industries_by_corp.get(c, [])
     )
 
+    ratios_by_industry = build_ratios(financials_df, companies)
+
     return {
         "companies": companies,
         "industry_map": industry_map,
         "financials": financials_df,
+        "ratios": ratios_by_industry,
     }

@@ -3,82 +3,59 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Samil Project DB</title>
+<title>Samil Project DB — 재무비율 대시보드</title>
 <link rel="stylesheet" href="/style.css" />
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
 <body>
+<div class="wrap">
 
-<header class="site-header">
-  <div class="site-header-inner">
-    <span class="brand">Samil Project DB</span>
-    <span class="brand-sub">기업 검색 · 재무 대시보드</span>
-  </div>
-</header>
-
-<section class="hero">
-  <h1>방산 · 반도체 · 건설 기업 데이터베이스</h1>
-  <p>사업보고서 기반 산업 분류와 재무 데이터를 한 곳에서 검색하고, 회사를 클릭하면 연도별 재무 추이를 바로 확인할 수 있습니다.</p>
-
-  <div class="stat-row" id="stat-row"></div>
-</section>
-
-<main>
-  <div class="filter-bar">
-    <div class="search-wrap">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-      </svg>
-      <input id="q" type="text" placeholder="회사명, 업종, 메모 검색..." />
+  <header class="top">
+    <div>
+      <p class="brand-eyebrow">Samil Project DB</p>
+      <h1 id="page-title">기업 재무비율 대시보드</h1>
+      <p class="sub" id="page-sub"></p>
     </div>
-    <select id="industry">
-      <option value="">전체 산업</option>
-      <option value="defense">방산</option>
-      <option value="semiconductor">반도체</option>
-      <option value="construction">건설</option>
-    </select>
-    <select id="market">
-      <option value="">전체 시장</option>
-      <option value="KOSPI">KOSPI</option>
-      <option value="KOSDAQ">KOSDAQ</option>
-    </select>
-    <select id="level">
-      <option value="">전체 등급</option>
-      <option value="A">A · 대표기업</option>
-      <option value="B">B · 주요기업</option>
-      <option value="C">C · 관련기업</option>
-    </select>
-  </div>
+    <div class="tab-bar" id="tab-bar"></div>
+  </header>
 
-  <div class="result-count" id="result-count"></div>
-
-  <div class="table-card">
-    <table>
-      <thead>
-        <tr>
-          <th>회사명</th>
-          <th>시장</th>
-          <th>업종분류(KSIC)</th>
-          <th>산업</th>
-          <th>메모</th>
-        </tr>
-      </thead>
-      <tbody id="rows"></tbody>
-    </table>
-  </div>
-</main>
-
-<div id="detail-overlay">
-  <div id="detail-panel">
-    <div class="panel-header">
-      <div>
-        <h2 id="detail-name"></h2>
-        <div class="sub" id="detail-sub"></div>
+  <div class="controls-row">
+    <div class="controls">
+      <input type="text" class="search-box" id="searchBox" placeholder="회사명 검색…" />
+      <div class="year-toggle" id="yearToggle">
+        <button data-year="2023">2023</button>
+        <button data-year="2024">2024</button>
+        <button data-year="2025" class="active">2025</button>
       </div>
-      <button class="close-btn" id="close-detail">&times;</button>
     </div>
-    <div class="panel-body" id="detail-body"></div>
+    <span class="panel-title" id="rowCount"></span>
   </div>
+
+  <div class="kpis" id="kpiStrip"></div>
+
+  <div class="main-grid">
+    <section class="panel">
+      <div class="panel-head">
+        <span class="panel-title">기업별 비율 · <b id="yearLabel">2025</b>년</span>
+      </div>
+      <div class="table-scroll">
+        <table class="data" id="dataTable">
+          <thead id="tableHead"></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <span class="panel-title">기업 상세</span>
+      </div>
+      <div class="detail-body" id="detailBody">
+        <div class="empty-hint">왼쪽 표에서 기업을 클릭하면 상세 비율을 볼 수 있습니다.</div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="notes" id="footerNote"></footer>
 </div>
 
 <script src="/app.js"></script>
