@@ -43,7 +43,18 @@ def get_meta():
         for row in companies["industries"]
         for ind in row
     })
-    return {"industries": industries, "markets": markets, "levels": levels}
+    industry_counts = {i: 0 for i in industries}
+    for row in companies["industries"]:
+        for ind in row:
+            industry_counts[ind["industry_id"]] += 1
+
+    return {
+        "industries": industries,
+        "markets": markets,
+        "levels": levels,
+        "industry_counts": industry_counts,
+        "total_companies": int(len(companies)),
+    }
 
 
 @app.get("/api/companies")

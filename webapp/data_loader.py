@@ -19,19 +19,27 @@ def _read_csv(name: str) -> pd.DataFrame:
     return pd.read_csv(DATA_DIR / name, dtype=str, keep_default_na=False)
 
 
+def _normalize_corp_code(series: pd.Series) -> pd.Series:
+    """DART corp_code는 항상 8자리 숫자인데, 파일마다 앞자리 0이 잘려 있는 경우가
+    있어(엑셀에서 숫자로 저장되는 등) 조인이 깨짐 - 8자리로 재정렬"""
+    stripped = series.str.strip()
+    return stripped.where(stripped == "", stripped.str.zfill(8))
+
+
 def load_data():
     companies = _read_csv("companies_basic.csv")
+    companies["corp_code"] = _normalize_corp_code(companies["corp_code"])
     # 데이터 생성 과정에서 신원 정보가 통째로 비어버린 깨진 행 제외
-    companies = companies[companies["corp_code"].str.strip() != ""].copy()
-    companies["corp_code"] = companies["corp_code"].str.strip()
+    companies = companies[companies["corp_code"] != ""].copy()
 
     industry_map = _read_csv("industry_map.csv")
-    industry_map = industry_map[industry_map["corp_code"].str.strip() != ""].copy()
+    industry_map["corp_code"] = _normalize_corp_code(industry_map["corp_code"])
+    industry_map = industry_map[industry_map["corp_code"] != ""].copy()
 
     financials = []
     for industry_id in ("defense", "semiconductor", "construction"):
         df = _read_csv(f"{industry_id}.csv")
-        df["corp_code"] = df["corp_code"].str.strip()
+        df["corp_code"] = _normalize_corp_code(df["corp_code"])
         df = df[df["corp_code"] != ""].copy()
         df["industry_id"] = industry_id
         financials.append(df)
