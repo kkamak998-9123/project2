@@ -24,9 +24,14 @@ function fmtX(v) {
   if (v < -999) return "-999+";
   return v.toFixed(2) + "x";
 }
+function fmtDay(v) {
+  if (v == null || isNaN(v)) return "—";
+  return v.toFixed(0) + "일";
+}
 function fmtByUnit(v, unit) {
   if (unit === "won") return fmtWon(v);
   if (unit === "x") return fmtX(v);
+  if (unit === "day") return fmtDay(v);
   return fmtPct(v);
 }
 

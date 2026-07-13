@@ -30,6 +30,7 @@ def compute_semiconductor(acc: dict) -> dict:
     ni = acc.get("당기순이익")
     assets = acc.get("총자산")
     liab = acc.get("부채총계")
+    non_curr_liab = acc.get("비유동부채")
     equity = acc.get("자본총계")
     sga = acc.get("판매비와관리비")
     ar = acc.get("매출채권")
@@ -41,6 +42,7 @@ def compute_semiconductor(acc: dict) -> dict:
     ocf = acc.get("영업활동현금흐름")
     dividend = acc.get("배당금지급")
     interest = acc.get("금융비용")
+    ebitda = acc.get("EBITDA")
 
     capex = None
     if capex_ppe is not None or capex_intangible is not None:
@@ -61,14 +63,18 @@ def compute_semiconductor(acc: dict) -> dict:
         "opm": _pct(opinc, revenue),
         "roe": _pct(ni, equity),
         "roa": _pct(ni, assets),
+        "niMargin": _pct(ni, revenue),
         "gpm": _pct(revenue - cogs, revenue) if revenue is not None and cogs is not None else None,
         "cogsRatio": _pct(cogs, revenue),
         "sgaRatio": _pct(sga, revenue),
         "debtRatio": _pct(liab, equity),
+        "nonCurrLiabRatio": _pct(non_curr_liab, liab),
         "equityRatio": _pct(equity, assets),
         "intCov": _safe_div(opinc, interest),
+        "ocfToOpinc": _safe_div(ocf, opinc),
         "assetTurn": _safe_div(revenue, assets),
         "invTurn": _safe_div(cogs, inv),
+        "invRatio": _pct(inv, revenue),
         "arTurn": _safe_div(revenue, ar),
         "capex": capex,
         "capexRatio": _pct(capex, revenue),
@@ -77,37 +83,58 @@ def compute_semiconductor(acc: dict) -> dict:
         "fixedAssetRatio": _pct(fixed_assets, assets),
         "ocf": ocf,
         "dividend": dividend,
+        "payoutRatio": _pct(dividend, ni),
+        "ebitda": ebitda,
+        "ebitdaMargin": _pct(ebitda, revenue) if ebitda is not None else None,
+        "capexOverEbitda": _safe_div(capex, ebitda) if capex is not None else None,
+        # 아래 3개는 전기(직전연도) 값과 비교해야 계산되는 지표라, 이 함수 안에서는
+        # raw 값만 반환하고 실제 계산은 data_loader.build_ratios에서 연도를 이어붙여 처리함
+        "_cogs": cogs,
+        "_inv": inv,
+        "_ar": ar,
     }
 
 
 SEMICONDUCTOR_TABLE_COLS = [
     ("revenue", "매출액", "won"),
+    ("revenueGrowth", "매출액증가율", "pct"),
     ("opm", "영업이익률", "pct"),
-    ("roe", "ROE", "pct"),
+    ("ebitda", "EBITDA", "won"),
+    ("ebitdaMargin", "EBITDA마진", "pct"),
+    ("niMargin", "순이익률", "pct"),
     ("debtRatio", "부채비율", "pct"),
     ("capexRatio", "Capex/매출", "pct"),
     ("fcfMargin", "FCF마진", "pct"),
-    ("fixedAssetRatio", "고정자산비율", "pct"),
 ]
 SEMICONDUCTOR_DETAIL_COLS = [
     ("gpm", "매출총이익률", "pct"),
     ("cogsRatio", "매출원가율", "pct"),
     ("sgaRatio", "SGA비율", "pct"),
     ("roa", "ROA", "pct"),
+    ("roe", "ROE", "pct"),
+    ("niMargin", "순이익률", "pct"),
     ("equityRatio", "자기자본비율", "pct"),
     ("debtRatio", "부채비율", "pct"),
+    ("nonCurrLiabRatio", "비유동부채비율", "pct"),
     ("fixedAssetRatio", "고정자산비율", "pct"),
     ("intCov", "이자보상배수", "x"),
+    ("ocfToOpinc", "영업활동현금흐름 전환율", "x"),
     ("assetTurn", "자산회전율", "x"),
     ("invTurn", "재고회전율", "x"),
+    ("invRatio", "재고자산비율", "pct"),
+    ("invGrowth", "재고자산증가율", "pct"),
+    ("invDays", "재고자산회전일수", "day"),
     ("arTurn", "매출채권회전율", "x"),
+    ("arDays", "매출채권회전일수", "day"),
     ("capex", "Capex", "won"),
+    ("capexOverEbitda", "Capex/EBITDA", "x"),
     ("dividend", "배당금지급", "won"),
+    ("payoutRatio", "배당성향", "pct"),
 ]
 SEMICONDUCTOR_SPARKS = [
     ("revenue", "매출액", "won"),
     ("opm", "영업이익률", "pct"),
-    ("roe", "ROE", "pct"),
+    ("ebitdaMargin", "EBITDA마진", "pct"),
     ("fcfMargin", "FCF마진", "pct"),
 ]
 
@@ -253,7 +280,13 @@ INDUSTRY_CONFIG = {
         "table_cols": SEMICONDUCTOR_TABLE_COLS,
         "detail_cols": SEMICONDUCTOR_DETAIL_COLS,
         "sparks": SEMICONDUCTOR_SPARKS,
-        "note": "19개 계정과목 기반 15개 파생비율. Capex/FCF는 유형·무형자산 취득액 기준.",
+        "note": "21개 계정과목(EBITDA 포함) 기반 파생비율. Capex/FCF는 유형·무형자산 취득액 기준. "
+                "매출액증가율·재고자산증가율·재고자산/매출채권회전일수는 전기(직전연도) 대비로 계산되어 "
+                "가장 이른 연도(2023년)에는 표시되지 않습니다. "
+                "EBITDA는 사업보고서에 감가상각비 계정이 없어 증권사 데이터(한경·네이버 펀더멘털)를 "
+                "별도 조사해 병합한 값으로 2025년만 존재하며, 일부 기업(HPSP·두산테스나·리노공업·티씨케이)은 "
+                "연결이 아닌 별도(개별) 재무제표 기준입니다. "
+                "순차입금/EBITDA는 이자부채·현금성자산 계정을 확보하지 못해 현재 계산이 불가능합니다.",
     },
     "construction": {
         "label": "건설",
