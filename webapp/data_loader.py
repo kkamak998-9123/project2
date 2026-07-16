@@ -106,14 +106,22 @@ def build_ratios(financials_df: pd.DataFrame, companies: pd.DataFrame) -> dict:
 
 def _normalize_corp_code(series: pd.Series) -> pd.Series:
     """DART corp_code는 항상 8자리 숫자인데, 파일마다 앞자리 0이 잘려 있는 경우가
-    있어(엑셀에서 숫자로 저장되는 등) 조인이 깨짐 - 8자리로 재정렬"""
-    stripped = series.str.strip()
+    있어(엑셀에서 숫자로 저장되는 등) 조인이 깨짐 - 8자리로 재정렬.
+    스프레드시트 재저장 과정에서 값에 겹따옴표가 섞여 들어오는 경우도 있어(예: 00126380")
+    함께 제거한다."""
+    stripped = series.str.strip().str.replace('"', "", regex=False)
     return stripped.where(stripped == "", stripped.str.zfill(8))
+
+
+def _clean_code(series: pd.Series) -> pd.Series:
+    """stock_code 등 코드성 컬럼에서 스프레드시트발 겹따옴표 오염만 제거."""
+    return series.str.strip().str.replace('"', "", regex=False)
 
 
 def load_data():
     companies = _read_csv("companies_basic.csv")
     companies["corp_code"] = _normalize_corp_code(companies["corp_code"])
+    companies["stock_code"] = _clean_code(companies["stock_code"])
     # 데이터 생성 과정에서 신원 정보가 통째로 비어버린 깨진 행 제외
     companies = companies[companies["corp_code"] != ""].copy()
 
@@ -125,6 +133,7 @@ def load_data():
     for industry_id in ("defense", "semiconductor", "construction"):
         df = _read_csv(f"{industry_id}.csv")
         df["corp_code"] = _normalize_corp_code(df["corp_code"])
+        df["stock_code"] = _clean_code(df["stock_code"])
         df = df[df["corp_code"] != ""].copy()
         df["industry_id"] = industry_id
         financials.append(df)
