@@ -244,17 +244,22 @@ def compute_defense(acc: dict) -> dict:
         "opinc": opinc,
         "opm": _pct(opinc, revenue),
         "ocfMargin": _pct(ocf, revenue),
+        "ocfToOpinc": _safe_div(ocf, opinc),
         "arTurn": _safe_div(revenue, ar),
         "invTurn": _safe_div(revenue, inv),
         "netContractRatio": _pct(net_contract, revenue),
         "contractAssetRatio": _pct(contract_asset, revenue),
         "contractLiabRatio": _pct(contract_liab, revenue),
         "ocf": ocf,
+        # revenueGrowth/invGrowth는 전기 대비 계산이 필요해 data_loader.build_ratios에서
+        # 연도를 이어붙여 채워 넣음(semiconductor와 동일한 방식) - _inv는 그 계산용 raw 값
+        "_inv": inv,
     }
 
 
 DEFENSE_TABLE_COLS = [
     ("revenue", "매출액", "won"),
+    ("revenueGrowth", "매출액증가율", "pct"),
     ("opm", "영업이익률", "pct"),
     ("ocfMargin", "OCF마진", "pct"),
     ("netContractRatio", "순계약자산비율", "pct"),
@@ -262,6 +267,8 @@ DEFENSE_TABLE_COLS = [
     ("invTurn", "재고회전율", "x"),
 ]
 DEFENSE_DETAIL_COLS = [
+    ("ocfToOpinc", "영업활동현금흐름 전환율", "x"),
+    ("invGrowth", "재고자산증가율", "pct"),
     ("contractAssetRatio", "계약자산비율(미청구)", "pct"),
     ("contractLiabRatio", "계약부채비율(초과청구)", "pct"),
 ]
@@ -303,7 +310,12 @@ INDUSTRY_CONFIG = {
         "table_cols": DEFENSE_TABLE_COLS,
         "detail_cols": DEFENSE_DETAIL_COLS,
         "sparks": DEFENSE_SPARKS,
-        "note": "현재 확보된 계정과목이 7개뿐이라 당기순이익·ROE 등은 계산할 수 없습니다. "
+        "note": "현재 확보된 계정과목이 7개(매출액·영업이익·영업활동현금흐름·매출채권·재고자산·"
+                "계약자산·계약부채)뿐이라 당기순이익·ROE 등은 계산할 수 없습니다. "
+                "매출총이익률·재고자산회전일수(매출원가 미확보), 개발비총자산비율·연구개발비매출액비율"
+                "(개발비·연구개발비 미확보), 충당부채매출액비율·충당부채영업이익비율(충당부채 미확보)은 "
+                "계정과목이 없어 계산할 수 없고, 이 7개로 계산 가능한 매출액증가율·영업활동현금흐름 "
+                "전환율·재고자산증가율만 추가로 반영했습니다. "
                 "순계약자산비율(계약자산-계약부채)로 수주 회수 리스크를 대신 보여줍니다. (임시 구성 - 추후 보강 예정)",
     },
 }
