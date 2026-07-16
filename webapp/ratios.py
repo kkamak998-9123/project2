@@ -134,8 +134,8 @@ SEMICONDUCTOR_DETAIL_COLS = [
 SEMICONDUCTOR_SPARKS = [
     ("revenue", "매출액", "won"),
     ("opm", "영업이익률", "pct"),
-    ("ebitdaMargin", "EBITDA마진", "pct"),
     ("capex", "유무형자산 취득액", "won"),
+    ("fcfMargin", "FCF마진", "pct"),
 ]
 
 
