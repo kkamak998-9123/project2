@@ -33,7 +33,14 @@ def _parse_amount(s: str):
 
 
 def build_ratios(financials_df: pd.DataFrame, companies: pd.DataFrame) -> dict:
-    """업종별 계정과목 -> 회사×연도별 재무비율 표로 변환"""
+    """업종별 계정과목 -> 회사×연도별 재무비율 표로 변환.
+
+    매출액증가율/재고자산증가율/재고자산·매출채권 회전일수처럼 전기(직전연도) 값과
+    비교해야 하는 지표는, 같은 회사(corp_code)의 직전 반복(연도가 1 작은 경우)에서
+    계산해 둔 값을 prev_by_corp에 캐시해뒀다가 이어붙이는 방식으로 처리한다.
+    (groupby(["corp_code","year"])는 기본적으로 corp_code -> year 오름차순으로
+    정렬되어 나오므로, 같은 회사는 연도 순서대로 순회된다.)
+    """
     financials_df = financials_df.copy()
     financials_df["amount_num"] = financials_df["amount"].apply(_parse_amount)
     financials_df["_prio"] = financials_df["fs_div"].map(FS_DIV_PRIORITY).fillna(2)
@@ -49,12 +56,39 @@ def build_ratios(financials_df: pd.DataFrame, companies: pd.DataFrame) -> dict:
     for industry_id, config in INDUSTRY_CONFIG.items():
         sub = financials_df[financials_df["industry_id"] == industry_id]
         rows = []
+        prev_by_corp = {}  # corp_code -> 직전에 계산한 연도의 computed dict(+_year)
         for (corp_code, year), group in sub.sort_values("_prio").groupby(["corp_code", "year"]):
             acc = {}
             for _, r in group.iterrows():
                 acc.setdefault(r["account_name"], r["amount_num"])
 
             computed = config["compute"](acc)
+
+            prev = prev_by_corp.get(corp_code)
+            if prev is not None and int(year) - prev["_year"] == 1:
+                rev, prev_rev = computed.get("revenue"), prev.get("revenue")
+                if rev is not None and prev_rev:
+                    computed["revenueGrowth"] = (rev - prev_rev) / prev_rev * 100
+
+                inv, prev_inv = computed.get("_inv"), prev.get("_inv")
+                if inv is not None and prev_inv:
+                    computed["invGrowth"] = (inv - prev_inv) / prev_inv * 100
+                if inv is not None and prev_inv is not None:
+                    cogs = computed.get("_cogs")
+                    if cogs:
+                        computed["invDays"] = (inv + prev_inv) / 2 / cogs * 365
+
+                ar, prev_ar = computed.get("_ar"), prev.get("_ar")
+                if ar is not None and prev_ar is not None and rev:
+                    computed["arDays"] = (ar + prev_ar) / 2 / rev * 365
+
+            # 다음 연도 계산에서 "전기값"으로 쓸 수 있도록 raw 필드까지 포함해 캐시
+            prev_by_corp[corp_code] = {**computed, "_year": int(year)}
+
+            # API로 내보내는 값에선 내부 계산용 raw 필드(_로 시작) 제거
+            for k in [k for k in computed if k.startswith("_")]:
+                computed.pop(k, None)
+
             info = name_lookup.get(corp_code, {})
             corp_name = info.get("corp_name") or group["corp_name"].iloc[0]
             stock_code = info.get("stock_code") or group["stock_code"].iloc[0]
