@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """업종별 재무비율 계산. 업종마다 사업보고서에서 뽑아둔 계정과목이 달라서
-(반도체는 19개 계정, 방산은 7개뿐) 업종별로 계산 가능한 비율셋을 따로 정의한다.
+(반도체는 20개 계정, 방산은 7개뿐) 업종별로 계산 가능한 비율셋을 따로 정의한다.
 
 반도체 비율/공식은 사용자가 이미 검증해 둔 반도체_재무비율_대시보드.html 기준을 그대로 따름.
+EBITDA는 외부 데이터 소스로 2025년치만 입력되어 있어, EBITDA 기반 지표는 2025년만 산출된다.
 방산·건설은 현재 확보된 계정과목 안에서 의미있는 지표를 임시로 구성 - 계정과목이
 보강되면(예: 방산에 당기순이익/자산총계 추가) 언제든 갱신 가능.
 """
@@ -20,7 +21,8 @@ def _pct(a, b):
 
 
 # ---------------------------------------------------------------------------
-# 반도체: 19개 계정과목 -> 15개 파생비율 (기존 반도체_재무비율_대시보드.html과 동일 공식)
+# 반도체: 20개 계정과목(19개 재무제표 계정 + EBITDA) -> 17개 파생비율
+# 기존 반도체_재무비율_대시보드.html과 동일 공식에 EBITDA마진율·Capex/EBITDA를 추가.
 # ---------------------------------------------------------------------------
 
 def compute_semiconductor(acc: dict) -> dict:
@@ -41,6 +43,7 @@ def compute_semiconductor(acc: dict) -> dict:
     ocf = acc.get("영업활동현금흐름")
     dividend = acc.get("배당금지급")
     interest = acc.get("금융비용")
+    ebitda = acc.get("EBITDA")
 
     capex = None
     if capex_ppe is not None or capex_intangible is not None:
@@ -77,6 +80,9 @@ def compute_semiconductor(acc: dict) -> dict:
         "fixedAssetRatio": _pct(fixed_assets, assets),
         "ocf": ocf,
         "dividend": dividend,
+        "ebitda": ebitda,
+        "ebitdaMargin": _pct(ebitda, revenue),
+        "capexEbitda": _safe_div(capex, ebitda),
     }
 
 
@@ -103,6 +109,8 @@ SEMICONDUCTOR_DETAIL_COLS = [
     ("arTurn", "매출채권회전율", "x"),
     ("capex", "Capex", "won"),
     ("dividend", "배당금지급", "won"),
+    ("ebitdaMargin", "EBITDA마진율", "pct"),
+    ("capexEbitda", "Capex/EBITDA", "x"),
 ]
 SEMICONDUCTOR_SPARKS = [
     ("revenue", "매출액", "won"),
@@ -253,7 +261,8 @@ INDUSTRY_CONFIG = {
         "table_cols": SEMICONDUCTOR_TABLE_COLS,
         "detail_cols": SEMICONDUCTOR_DETAIL_COLS,
         "sparks": SEMICONDUCTOR_SPARKS,
-        "note": "19개 계정과목 기반 15개 파생비율. Capex/FCF는 유형·무형자산 취득액 기준.",
+        "note": "20개 계정과목 기반 17개 파생비율. Capex/FCF는 유형·무형자산 취득액 기준. "
+                "EBITDA마진율·Capex/EBITDA는 외부 데이터로 확보한 2025년 EBITDA 기준으로만 산출됩니다.",
     },
     "construction": {
         "label": "건설",
