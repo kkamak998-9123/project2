@@ -106,7 +106,6 @@ SEMICONDUCTOR_TABLE_COLS = [
 ]
 SEMICONDUCTOR_DETAIL_COLS = [
     ("gpm", "매출총이익률", "pct"),
-    ("cogsRatio", "매출원가율", "pct"),
     ("sgaRatio", "SGA비율", "pct"),
     ("roa", "ROA", "pct"),
     ("roe", "ROE", "pct"),
@@ -120,12 +119,10 @@ SEMICONDUCTOR_DETAIL_COLS = [
     ("invRatio", "재고자산비율", "pct"),
     ("invGrowth", "재고자산증가율", "pct"),
     ("invDays", "재고자산회전일수", "day"),
-    ("arTurn", "매출채권회전율", "x"),
     ("arDays", "매출채권회전일수", "day"),
     ("capex", "Capex", "won"),
     ("capexOverEbitda", "Capex/EBITDA", "x"),
     ("dividend", "배당금지급", "won"),
-    ("payoutRatio", "배당성향", "pct"),
 ]
 SEMICONDUCTOR_SPARKS = [
     ("revenue", "매출액", "won"),
