@@ -100,8 +100,6 @@ SEMICONDUCTOR_TABLE_COLS = [
     ("revenueGrowth", "매출액증가율", "pct"),
     ("opm", "영업이익률", "pct"),
     ("ebitda", "EBITDA", "won"),
-    ("ebitdaMargin", "EBITDA마진", "pct"),
-    ("niMargin", "순이익률", "pct"),
     ("debtRatio", "부채비율", "pct"),
     ("capexRatio", "Capex/매출", "pct"),
     ("fcfMargin", "FCF마진", "pct"),
@@ -112,9 +110,7 @@ SEMICONDUCTOR_DETAIL_COLS = [
     ("sgaRatio", "SGA비율", "pct"),
     ("roa", "ROA", "pct"),
     ("roe", "ROE", "pct"),
-    ("niMargin", "순이익률", "pct"),
     ("equityRatio", "자기자본비율", "pct"),
-    ("debtRatio", "부채비율", "pct"),
     ("nonCurrLiabRatio", "비유동부채비율", "pct"),
     ("fixedAssetRatio", "고정자산비율", "pct"),
     ("intCov", "이자보상배수", "x"),
@@ -134,6 +130,7 @@ SEMICONDUCTOR_DETAIL_COLS = [
 SEMICONDUCTOR_SPARKS = [
     ("revenue", "매출액", "won"),
     ("opm", "영업이익률", "pct"),
+    ("niMargin", "순이익률", "pct"),
     ("capex", "유무형자산 취득액", "won"),
     ("fcfMargin", "FCF마진", "pct"),
 ]
@@ -263,8 +260,6 @@ DEFENSE_TABLE_COLS = [
     ("opm", "영업이익률", "pct"),
     ("ocfMargin", "OCF마진", "pct"),
     ("netContractRatio", "순계약자산비율", "pct"),
-    ("arTurn", "매출채권회전율", "x"),
-    ("invTurn", "재고회전율", "x"),
 ]
 DEFENSE_DETAIL_COLS = [
     ("ocfToOpinc", "영업활동현금흐름 전환율", "x"),
@@ -277,6 +272,8 @@ DEFENSE_SPARKS = [
     ("opm", "영업이익률", "pct"),
     ("ocfMargin", "OCF마진", "pct"),
     ("netContractRatio", "순계약자산비율", "pct"),
+    ("arTurn", "매출채권회전율", "x"),
+    ("invTurn", "재고회전율", "x"),
 ]
 
 

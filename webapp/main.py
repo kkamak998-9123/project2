@@ -90,7 +90,12 @@ def get_ratio_detail(industry: str, corp_code: str):
         raise HTTPException(status_code=404, detail="재무비율 데이터가 없습니다")
 
     cfg = INDUSTRY_CONFIG[industry]
-    all_keys = ["revenue"] + [k for k, _, _ in cfg["table_cols"]] + [k for k, _, _ in cfg["detail_cols"]]
+    all_keys = (
+        ["revenue"]
+        + [k for k, _, _ in cfg["table_cols"]]
+        + [k for k, _, _ in cfg["detail_cols"]]
+        + [k for k, _, _ in cfg["sparks"]]
+    )
     all_keys = list(dict.fromkeys(all_keys))  # 순서 유지 중복 제거
 
     years = rows["year"].tolist()

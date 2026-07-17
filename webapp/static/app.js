@@ -44,6 +44,8 @@ const BADGE_RULES = {
   debtRatio: [[-Infinity, "good"], [100, "warn"], [200, "bad"]],
   currentRatio: [[150, "good"], [100, "warn"], [-Infinity, "bad"]],
   borrowingRatio: [[-Infinity, "good"], [30, "warn"], [50, "bad"]],
+  // EBITDA는 비율이 아니라 금액 자체 기준: 1000억 이상 초록, 0~1000억 노랑, 적자 빨강
+  ebitda: [[1e11, "good"], [0, "warn"], [-Infinity, "bad"]],
 };
 
 function badgeFor(key, v) {
